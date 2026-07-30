@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gatherly — AI Event Planner POC</title>
+  <style>
+    :root {
+      --bg: #f6f3ee;
+      --panel: rgba(255, 255, 255, 0.88);
+      --panel-solid: #ffffff;
+      --text: #1e1c1a;
+      --muted: #736d66;
+      --line: #e6dfd5;
+      --brand: #7a2846;
+      --brand-dark: #55172f;
+      --brand-soft: #f4e6ec;
+      --accent: #d7a45d;
+      --success: #25765a;
+      --warning: #b27422;
+      --danger: #a53b3b;
+      --shadow: 0 20px 60px rgba(51, 37, 43, 0.10);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 0%, rgba(122, 40, 70, 0.10), transparent 28%),
+        radial-gradient(circle at 90% 15%, rgba(215, 164, 93, 0.13), transparent 25%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .app-shell {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 28px 20px;
+      background: rgba(40, 18, 29, 0.97);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 36px;
+    }
+
+    .logo-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: #fff;
+      background: linear-gradient(135deg, #a8466b, #d7a45d);
+      box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+
+    .nav-section-title {
+      margin: 18px 12px 8px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      color: rgba(255,255,255,.45);
+    }
+
+    .nav-item {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: rgba(255,255,255,.72);
+      padding: 12px 14px;
+      margin: 3px 0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      text-align: left;
+      transition: .2s ease;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      color: #fff;
+      background: rgba(255,255,255,.10);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      padding: 15px;
+      color: rgba(255,255,255,.72);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .main { padding: 30px; overflow: hidden; }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: center;
+      margin-bottom: 26px;
+    }
+
+    .eyebrow {
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: clamp(28px, 4vw, 44px); line-height: 1.05; letter-spacing: -1.5px; margin-bottom: 10px; }
+    h2 { font-size: 24px; letter-spacing: -0.6px; }
+    h3 { font-size: 16px; }
+    .muted { color: var(--muted); }
+
+    .top-actions { display: flex; gap: 10px; align-items: center; }
+
+    .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--brand-soft);
+      color: var(--brand);
+      font-weight: 800;
+      border: 1px solid #ead0da;
+    }
+
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--panel-solid);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-weight: 700;
+      transition: .2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,.07); }
+    .btn-primary { color: #fff; background: var(--brand); border-color: var(--brand); }
+    .btn-primary:hover { background: var(--brand-dark); }
+    .btn-soft { color: var(--brand); background: var(--brand-soft); border-color: transparent; }
+    .btn-small { padding: 8px 10px; font-size: 12px; border-radius: 10px; }
+
+    .view { display: none; animation: fadeIn .25s ease; }
+    .view.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.15fr .85fr;
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.7);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .planner-card { padding: 28px; }
+    .planner-card p { max-width: 700px; }
+
+    .prompt-box {
+      margin-top: 24px;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: inset 0 1px 0 rgba(0,0,0,.02);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 105px;
+      border: 0;
+      resize: vertical;
+      padding: 12px;
+      color: var(--text);
+      outline: none;
+      background: transparent;
+      line-height: 1.5;
+    }
+
+    .prompt-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 5px 2px;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--muted);
+      border-radius: 999px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .chip:hover { color: var(--brand); border-color: #d8aebe; }
+
+    .preview-card {
+      position: relative;
+      overflow: hidden;
+      padding: 28px;
+      color: #fff;
+      background:
+        linear-gradient(155deg, rgba(61,20,37,.95), rgba(122,40,70,.88)),
+        linear-gradient(45deg, #2d101c, #7a2846);
+    }
+
+    .preview-card::after {
+      content: "";
+      position: absolute;
+      width: 260px;
+      height: 260px;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 50%;
+      right: -90px;
+      top: -80px;
+    }
+
+    .preview-card .muted { color: rgba(255,255,255,.65); }
+    .preview-badge {
+      display: inline-flex;
+      background: rgba(255,255,255,.11);
+      border: 1px solid rgba(255,255,255,.14);
+      padding: 8px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      margin-bottom: 28px;
+    }
+
+    .preview-timeline { margin-top: 28px; display: grid; gap: 18px; }
+    .preview-step { display: grid; grid-template-columns: 54px 1fr; gap: 12px; position: relative; }
+    .preview-step:not(:last-child)::before {
+      content: "";
+      position: absolute;
+      left: 25px;
+      top: 37px;
+      height: 36px;
+      width: 1px;
+      background: rgba(255,255,255,.2);
+    }
+    .time { font-size: 12px; color: rgba(255,255,255,.58); padding-top: 4px; }
+    .preview-step strong { display: block; font-size: 14px; }
+    .preview-step span { font-size: 12px; color: rgba(255,255,255,.58); }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card { padding: 20px; }
+    .stat-label { color: var(--muted); font-size: 12px; font-weight: 700; margin-bottom: 12px; }
+    .stat-value { font-size: 27px; font-weight: 850; letter-spacing: -1px; }
+    .stat-meta { font-size: 12px; margin-top: 8px; color: var(--success); font-weight: 700; }
+
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1.35fr .65fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .section-card { padding: 24px; }
+    .section-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .section-head h2, .section-head h3 { margin: 0; }
+
+    .recommendation-list { display: grid; gap: 12px; }
+    .recommendation {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
+      align-items: center;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .rec-icon {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: var(--brand-soft);
+      font-size: 20px;
+    }
+
+    .recommendation strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .recommendation small { color: var(--muted); }
+    .rec-right { text-align: right; }
+    .price { font-weight: 850; margin-bottom: 7px; }
+
+    .switch {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      display: inline-block;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      background: #d8d2cb;
+      border-radius: 999px;
+      transition: .2s;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: .2s;
+      box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    }
+    .switch input:checked + .slider { background: var(--brand); }
+    .switch input:checked + .slider::before { transform: translateX(18px); }
+
+    .budget-wrap { display: grid; place-items: center; padding: 8px 0 20px; }
+    .budget-ring {
+      --pct: 82;
+      width: 176px;
+      height: 176px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--brand) calc(var(--pct) * 1%), #eee7df 0);
+      position: relative;
+    }
+    .budget-ring::before {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      background: #fff;
+    }
+    .budget-center { position: relative; text-align: center; }
+    .budget-center strong { display: block; font-size: 28px; letter-spacing: -1px; }
+    .budget-center span { color: var(--muted); font-size: 12px; }
+
+    .budget-row { display: flex; justify-content: space-between; padding: 11px 0; border-top: 1px solid var(--line); font-size: 13px; }
+    .budget-row strong { font-size: 14px; }
+
+    .progress {
+      height: 8px;
+      background: #eee7df;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress > span { display: block; height: 100%; background: var(--brand); border-radius: inherit; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 720px; }
+    th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; padding: 12px; border-bottom: 1px solid var(--line); }
+    td { padding: 15px 12px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 9px;
+      font-size: 11px;
+      font-weight: 800;
+      background: #f1eee9;
+      color: var(--muted);
+    }
+    .status.success { color: var(--success); background: #e4f2ec; }
+    .status.warning { color: var(--warning); background: #fff1dd; }
+    .status.danger { color: var(--danger); background: #f9e3e3; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+    .guest-list { display: grid; gap: 10px; }
+    .guest {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+    }
+    .guest-info { display: flex; align-items: center; gap: 12px; }
+    .mini-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: #efe8df; font-weight: 850; color: var(--brand); }
+
+    .activity-list { display: grid; gap: 12px; }
+    .activity {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      align-items: start;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .activity-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--brand); margin-top: 5px; }
+    .activity time { color: var(--muted); font-size: 11px; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .field { display: grid; gap: 7px; }
+    .field.full { grid-column: 1 / -1; }
+    label { font-size: 12px; font-weight: 750; color: var(--muted); }
+    input, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px;
+      outline: none;
+      color: var(--text);
+    }
+    input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(122,40,70,.10); border-color: #c58ba1; }
+
+    .empty-state { text-align: center; padding: 46px 20px; }
+    .empty-state .emoji { font-size: 48px; margin-bottom: 14px; }
+
+    .toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      max-width: 360px;
+      background: #23141b;
+      color: #fff;
+      padding: 14px 16px;
+      border-radius: 14px;
+      box-shadow: 0 16px 50px rgba(0,0,0,.25);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px);
+      transition: .25s ease;
+      z-index: 100;
+    }
+    .toast.show { opacity: 1; transform: none; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(28,17,22,.48);
+      display: none;
+      place-items: center;
+      padding: 20px;
+      z-index: 50;
+    }
+    .modal-backdrop.open { display: grid; }
+    .modal {
+      width: min(660px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: #fff;
+      border-radius: 22px;
+      padding: 25px;
+      box-shadow: 0 28px 80px rgba(0,0,0,.25);
+    }
+
+    .mobile-menu { display: none; }
+
+    @media (max-width: 1020px) {
+      .app-shell { grid-template-columns: 86px 1fr; }
+      .sidebar { padding: 24px 12px; }
+      .logo span, .nav-item span, .nav-section-title, .sidebar-footer { display: none; }
+      .logo { justify-content: center; }
+      .nav-item { justify-content: center; padding: 13px; }
+      .hero, .section-grid { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 700px) {
+      .app-shell { display: block; }
+      .sidebar {
+        position: fixed;
+        inset: 0 auto 0 0;
+        width: 250px;
+        transform: translateX(-100%);
+        transition: .25s ease;
+      }
+      .sidebar.open { transform: none; }
+      .sidebar .logo span, .sidebar .nav-item span, .sidebar .nav-section-title, .sidebar .sidebar-footer { display: block; }
+      .sidebar .nav-item { justify-content: flex-start; }
+      .main { padding: 20px 15px; }
+      .mobile-menu { display: inline-flex; }
+      .top-actions .btn-soft { display: none; }
+      .topbar { align-items: flex-start; }
+      .stat-grid, .two-col, .form-grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: auto; }
+      .prompt-actions { align-items: stretch; flex-direction: column; }
+      .recommendation { grid-template-columns: auto 1fr; }
+      .rec-right { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; text-align: left; padding-left: 58px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="logo"><div class="logo-mark">G</div><span>Gatherly</span></div>
+
+      <div class="nav-section-title">Workspace</div>
+      <button class="nav-item active" data-view="home"><b>⌂</b><span>Overview</span></button>
+      <button class="nav-item" data-view="plan"><b>✦</b><span>AI Plan</span></button>
+      <button class="nav-item" data-view="vendors"><b>◫</b><span>Vendors</span></button>
+      <button class="nav-item" data-view="guests"><b>♙</b><span>Guests</span></button>
+      <button class="nav-item" data-view="payments"><b>$</b><span>Budget & Payments</span></button>
+
+      <div class="nav-section-title">Manage</div>
+      <button class="nav-item" data-view="tasks"><b>✓</b><span>Tasks</span></button>
+      <button class="nav-item" data-view="settings"><b>⚙</b><span>Event Settings</span></button>
+
+      <div class="sidebar-footer">
+        <strong style="color:#fff">AI planner online</strong><br />
+        Recommendations can be edited before anything is booked.
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div style="display:flex; gap:12px; align-items:flex-start">
+          <button class="btn mobile-menu" id="menuBtn">☰</button>
+          <div>
+            <div class="eyebrow">Event workspace</div>
+            <h2 style="margin:4px 0 0">Maya's Anniversary Date</h2>
+          </div>
+        </div>
+        <div class="top-actions">
+          <button class="btn btn-soft" id="shareBtn">Share guest view</button>
+          <button class="btn" id="newEventBtn">＋ New event</button>
+          <div class="avatar">MK</div>
+        </div>
+      </header>
+
+      <section class="view active" id="home">
+        <div class="hero">
+          <div class="card planner-card">
+            <div class="eyebrow">AI Event Planner</div>
+            <h1>Turn an idea into an event.</h1>
+            <p class="muted">Describe the occasion, your budget, and what your guests enjoy. Gatherly will build an editable plan and surface matching vendors.</p>
+
+            <div class="prompt-box">
+              <textarea id="eventPrompt">Plan a quiet anniversary date in Toronto next Saturday for two people. Budget is C$250. We like Italian food, art, waterfront walks, and thoughtful gifts. Avoid clubs and crowded venues.</textarea>
+              <div class="prompt-actions">
+                <div class="chips">
+                  <button class="chip" data-prompt="Plan a birthday dinner for 8 people with a C$700 budget.">Birthday</button>
+                  <button class="chip" data-prompt="Plan a romantic picnic and evening activity for two under C$180.">Date night</button>
+                  <button class="chip" data-prompt="Plan a professional workshop for 40 attendees with catering and AV.">Workshop</button>
+                </div>
+                <button class="btn btn-primary" id="generateBtn">✦ Generate plan</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card preview-card">
+            <div class="preview-badge">Saturday · Toronto · 2 guests</div>
+            <h2 style="font-size:30px; margin-bottom:8px">Art, Italian & the waterfront</h2>
+            <p class="muted">A relaxed four-hour anniversary experience.</p>
+            <div class="preview-timeline">
+              <div class="preview-step"><div class="time">5:30</div><div><strong>Gallery visit</strong><span>Quiet indoor start</span></div></div>
+              <div class="preview-step"><div class="time">7:15</div><div><strong>Italian dinner</strong><span>Reservation-ready shortlist</span></div></div>
+              <div class="preview-step"><div class="time">9:00</div><div><strong>Dessert walk</strong><span>Waterfront route and backup café</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="card stat-card"><div class="stat-label">Readiness score</div><div class="stat-value">82%</div><div class="stat-meta">↑ 14% this week</div></div>
+          <div class="card stat-card"><div class="stat-label">Estimated spend</div><div class="stat-value" id="statSpend">C$205</div><div class="stat-meta">C$45 remaining</div></div>
+          <div class="card stat-card"><div class="stat-label">Confirmed vendors</div><div class="stat-value">2 / 4</div><div class="stat-meta">2 need action</div></div>
+          <div class="card stat-card"><div class="stat-label">Tasks complete</div><div class="stat-value">6 / 9</div><div class="stat-meta">Next due tomorrow</div></div>
+        </div>
+
+        <div class="section-grid">
+          <div class="card section-card">
+            <div class="section-head">
+              <div><div class="eyebrow">Recommended itinerary</div><h2>Your editable plan</h2></div>
+              <button class="btn btn-small" id="openPlanBtn">Open full plan</button>
+            </div>
+
+            <div class="recommendation-list" id="recommendations">
+              <div class="recommendation" data-cost="35">
+                <div class="rec-icon">🎨</div>
+                <div><strong>Contemporary gallery visit</strong><small>5:30 p.m. · 75 minutes · Strong match for art + quiet atmosphere</small></div>
+                <div class="rec-right"><div class="price">C$35</div><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+              </div>
+              <div class="recommendation" data-cost="125">
+                <div class="rec-icon">🍝</div>
+                <div><strong>Italian dinner reservation</strong><small>7:15 p.m. · 3 matching restaurants · Availability check ready</small></div>
+                <div class="rec-right"><div class="price">C$125</div><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+              </div>
+              <div class="recommendation" data-cost="20">
+                <div class="rec-icon">🍰</div>
+                <div><strong>Dessert stop</strong><small>9:00 p.m. · Near waterfront route · Indoor backup included</small></div>
+                <div class="rec-right"><div class="price">C$20</div><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+              </div>
+              <div class="recommendation" data-cost="25">
+                <div class="rec-icon">🎁</div>
+                <div><strong>Personalized gift</strong><small>Local vendor · Ready for pickup Friday · Gift note included</small></div>
+                <div class="rec-right"><div class="price">C$25</div><label class="switch"><input type="checkbox" checked><span class="slider"></span></label></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card section-card">
+            <div class="section-head"><div><div class="eyebrow">Budget</div><h2>Plan total</h2></div></div>
+            <div class="budget-wrap">
+              <div class="budget-ring" id="budgetRing"><div class="budget-center"><strong id="budgetTotal">C$205</strong><span>of C$250</span></div></div>
+            </div>
+            <div class="budget-row"><span>Activities</span><strong id="activityCost">C$35</strong></div>
+            <div class="budget-row"><span>Food & dining</span><strong id="foodCost">C$145</strong></div>
+            <div class="budget-row"><span>Gift</span><strong id="giftCost">C$25</strong></div>
+            <div class="budget-row"><span>Remaining</span><strong id="remainingBudget" style="color:var(--success)">C$45</strong></div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div class="card section-card">
+            <div class="section-head"><h3>Vendor status</h3><button class="btn btn-small" data-nav="vendors">View all</button></div>
+            <div class="activity-list">
+              <div class="activity"><div class="activity-dot"></div><div><strong>Trattoria Verde confirmed</strong><br><span class="muted">Reservation held for 7:15 p.m.</span></div><time>Today</time></div>
+              <div class="activity"><div class="activity-dot" style="background:var(--warning)"></div><div><strong>Gift personalization pending</strong><br><span class="muted">Approve engraving by tomorrow.</span></div><time>1h</time></div>
+              <div class="activity"><div class="activity-dot" style="background:var(--success)"></div><div><strong>Gallery tickets saved</strong><br><span class="muted">Mobile tickets added to event.</span></div><time>Yesterday</time></div>
+            </div>
+          </div>
+
+          <div class="card section-card">
+            <div class="section-head"><h3>AI risk check</h3><span class="status warning">1 watch item</span></div>
+            <p style="font-size:14px; line-height:1.55">Rain is possible during the waterfront portion. A nearby dessert café has been added as an indoor backup.</p>
+            <button class="btn btn-soft" id="riskBtn">View contingency</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="plan">
+        <div class="card section-card">
+          <div class="section-head">
+            <div><div class="eyebrow">AI Plan</div><h1 style="font-size:34px">Art, Italian & the waterfront</h1><p class="muted">A personalized four-hour anniversary plan for two.</p></div>
+            <button class="btn btn-primary" id="optimizeBtn">✦ Optimize itinerary</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Time</th><th>Experience</th><th>Vendor</th><th>Cost</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>5:30 p.m.</td><td><strong>Contemporary gallery visit</strong><br><span class="muted">75 minutes</span></td><td>City Art House</td><td>C$35</td><td><span class="status success">Selected</span></td><td><button class="btn btn-small">Replace</button></td></tr>
+                <tr><td>7:15 p.m.</td><td><strong>Italian dinner</strong><br><span class="muted">90 minutes</span></td><td>Trattoria Verde</td><td>C$125</td><td><span class="status success">Confirmed</span></td><td><button class="btn btn-small">Details</button></td></tr>
+                <tr><td>9:00 p.m.</td><td><strong>Dessert and walk</strong><br><span class="muted">60 minutes</span></td><td>Dolce Harbour</td><td>C$20</td><td><span class="status warning">Backup saved</span></td><td><button class="btn btn-small">Options</button></td></tr>
+                <tr><td>Before event</td><td><strong>Personalized gift</strong><br><span class="muted">Pickup Friday</span></td><td>Made With Meaning</td><td>C$25</td><td><span class="status warning">Approval needed</span></td><td><button class="btn btn-small">Approve</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="vendors">
+        <div class="card section-card">
+          <div class="section-head">
+            <div><div class="eyebrow">Vendor pipeline</div><h1 style="font-size:34px">Every provider in one place</h1></div>
+            <button class="btn btn-primary" id="addVendorBtn">＋ Add vendor</button>
+          </div>
+          <div class="table-wrap">
+            <table id="vendorTable">
+              <thead><tr><th>Vendor</th><th>Category</th><th>Quote</th><th>Payment</th><th>Status</th><th>Next action</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Trattoria Verde</strong><br><span class="muted">Dining</span></td><td>Restaurant</td><td>C$125</td><td>C$0 due now</td><td><span class="status success">Confirmed</span></td><td>Arrive by 7:10 p.m.</td></tr>
+                <tr><td><strong>City Art House</strong><br><span class="muted">Experience</span></td><td>Tickets</td><td>C$35</td><td>Paid</td><td><span class="status success">Complete</span></td><td>Tickets saved</td></tr>
+                <tr><td><strong>Made With Meaning</strong><br><span class="muted">Gift</span></td><td>Retail</td><td>C$25</td><td>Due on approval</td><td><span class="status warning">Pending</span></td><td>Approve engraving</td></tr>
+                <tr><td><strong>Dolce Harbour</strong><br><span class="muted">Dessert</span></td><td>Café</td><td>C$20</td><td>Pay at venue</td><td><span class="status">Shortlisted</span></td><td>Check closing time</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="guests">
+        <div class="two-col">
+          <div class="card section-card">
+            <div class="section-head"><div><div class="eyebrow">Guest portal</div><h2>Attendance</h2></div><button class="btn btn-primary" id="inviteBtn">Invite guest</button></div>
+            <div class="guest-list" id="guestList">
+              <div class="guest"><div class="guest-info"><div class="mini-avatar">M</div><div><strong>Maya</strong><br><span class="muted">Guest of honour</span></div></div><span class="status success">Confirmed</span></div>
+              <div class="guest"><div class="guest-info"><div class="mini-avatar">MK</div><div><strong>Muhtasim</strong><br><span class="muted">Organizer</span></div></div><span class="status success">Going</span></div>
+            </div>
+          </div>
+          <div class="card section-card">
+            <div class="section-head"><h2>Guest view preview</h2><span class="status success">Live</span></div>
+            <div style="padding:22px; border-radius:18px; background:linear-gradient(150deg,#3a1726,#8a3153); color:#fff">
+              <div style="font-size:12px; opacity:.65; text-transform:uppercase; letter-spacing:1px">You're invited</div>
+              <h2 style="font-size:29px; margin-top:12px">A surprise anniversary evening</h2>
+              <p style="opacity:.72">Saturday · 5:30 p.m. · Toronto</p>
+              <div style="background:rgba(255,255,255,.1); padding:14px; border-radius:14px; margin:24px 0">Full details will be revealed on the day. Dress smart casual and bring comfortable shoes.</div>
+              <button class="btn" style="width:100%">Update RSVP</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="payments">
+        <div class="stat-grid">
+          <div class="card stat-card"><div class="stat-label">Event budget</div><div class="stat-value">C$250</div><div class="stat-meta">Set by organizer</div></div>
+          <div class="card stat-card"><div class="stat-label">Committed</div><div class="stat-value">C$205</div><div class="stat-meta">82% of budget</div></div>
+          <div class="card stat-card"><div class="stat-label">Paid</div><div class="stat-value">C$35</div><div class="stat-meta">Gallery tickets</div></div>
+          <div class="card stat-card"><div class="stat-label">Upcoming</div><div class="stat-value">C$25</div><div class="stat-meta">Approval needed</div></div>
+        </div>
+        <div class="section-grid">
+          <div class="card section-card">
+            <div class="section-head"><div><div class="eyebrow">Payments</div><h2>Transaction schedule</h2></div><button class="btn btn-primary" id="mediateBtn">✦ Ask AI mediator</button></div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Payee</th><th>Purpose</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td>City Art House</td><td>Two tickets</td><td>C$35</td><td>Paid</td><td><span class="status success">Complete</span></td></tr>
+                  <tr><td>Made With Meaning</td><td>Personalized gift</td><td>C$25</td><td>Tomorrow</td><td><span class="status warning">Pending approval</span></td></tr>
+                  <tr><td>Trattoria Verde</td><td>Dinner</td><td>C$125 est.</td><td>Event day</td><td><span class="status">Pay at venue</span></td></tr>
+                  <tr><td>Dolce Harbour</td><td>Dessert</td><td>C$20 est.</td><td>Event day</td><td><span class="status">Pay at venue</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card section-card">
+            <div class="section-head"><h2>AI payment check</h2><span class="status success">No major issues</span></div>
+            <p class="muted" style="line-height:1.6">The gift vendor requires payment before production. The price matches the accepted quote, and cancellation is available until engraving begins.</p>
+            <div class="budget-row"><span>Quote</span><strong>C$25</strong></div>
+            <div class="budget-row"><span>Invoice</span><strong>C$25</strong></div>
+            <div class="budget-row"><span>Difference</span><strong style="color:var(--success)">C$0</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="tasks">
+        <div class="card section-card">
+          <div class="section-head"><div><div class="eyebrow">Execution</div><h1 style="font-size:34px">Event checklist</h1></div><button class="btn btn-primary" id="addTaskBtn">＋ Add task</button></div>
+          <div id="taskList">
+            <label class="guest"><div class="guest-info"><input type="checkbox" checked><div><strong>Choose event concept</strong><br><span class="muted">Completed by Muhtasim</span></div></div><span class="status success">Done</span></label>
+            <label class="guest"><div class="guest-info"><input type="checkbox" checked><div><strong>Reserve restaurant</strong><br><span class="muted">Completed today</span></div></div><span class="status success">Done</span></label>
+            <label class="guest"><div class="guest-info"><input type="checkbox"><div><strong>Approve gift engraving</strong><br><span class="muted">Due tomorrow</span></div></div><span class="status warning">Due soon</span></label>
+            <label class="guest"><div class="guest-info"><input type="checkbox"><div><strong>Check weather and confirm backup</strong><br><span class="muted">Due Friday</span></div></div><span class="status">Open</span></label>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="settings">
+        <div class="card section-card">
+          <div class="section-head"><div><div class="eyebrow">Event settings</div><h1 style="font-size:34px">Planning preferences</h1></div><button class="btn btn-primary" id="saveSettingsBtn">Save changes</button></div>
+          <div class="form-grid">
+            <div class="field"><label>Event name</label><input value="Maya's Anniversary Date"></div>
+            <div class="field"><label>Event type</label><select><option>Date night</option><option>Birthday</option><option>Wedding</option><option>Workshop</option></select></div>
+            <div class="field"><label>Date</label><input type="date" value="2026-08-01"></div>
+            <div class="field"><label>Budget</label><input value="C$250"></div>
+            <div class="field"><label>City</label><input value="Toronto"></div>
+            <div class="field"><label>Guest count</label><input type="number" value="2"></div>
+            <div class="field full"><label>Likes</label><input value="Italian food, art, waterfront walks, thoughtful gifts"></div>
+            <div class="field full"><label>Avoid</label><input value="Clubs, loud environments, crowded venues"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <div class="section-head"><div><div class="eyebrow" id="modalEyebrow">Create</div><h2 id="modalTitle">New event</h2></div><button class="btn btn-small" id="closeModal">✕</button></div>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const navItems = [...document.querySelectorAll('.nav-item')];
+    const views = [...document.querySelectorAll('.view')];
+    const sidebar = document.getElementById('sidebar');
+    const toast = document.getElementById('toast');
+    const modalBackdrop = document.getElementById('modalBackdrop');
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    function navigate(viewId) {
+      views.forEach(v => v.classList.toggle('active', v.id === viewId));
+      navItems.forEach(n => n.classList.toggle('active', n.dataset.view === viewId));
+      sidebar.classList.remove('open');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    navItems.forEach(item => item.addEventListener('click', () => navigate(item.dataset.view)));
+    document.querySelectorAll('[data-nav]').forEach(btn => btn.addEventListener('click', () => navigate(btn.dataset.nav)));
+    document.getElementById('openPlanBtn').addEventListener('click', () => navigate('plan'));
+    document.getElementById('menuBtn').addEventListener('click', () => sidebar.classList.toggle('open'));
+
+    document.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', () => {
+      document.getElementById('eventPrompt').value = chip.dataset.prompt;
+    }));
+
+    function updateBudget() {
+      const checked = [...document.querySelectorAll('#recommendations .recommendation')]
+        .filter(r => r.querySelector('input').checked);
+      const total = checked.reduce((sum, r) => sum + Number(r.dataset.cost), 0);
+      const budget = 250;
+      const remaining = budget - total;
+      const pct = Math.min(100, Math.round(total / budget * 100));
+
+      document.getElementById('budgetTotal').textContent = `C$${total}`;
+      document.getElementById('statSpend').textContent = `C$${total}`;
+      document.getElementById('remainingBudget').textContent = `C$${remaining}`;
+      document.getElementById('budgetRing').style.setProperty('--pct', pct);
+
+      document.getElementById('activityCost').textContent = checked.some(r => r.dataset.cost === '35') ? 'C$35' : 'C$0';
+      let food = 0;
+      if (checked.some(r => r.dataset.cost === '125')) food += 125;
+      if (checked.some(r => r.dataset.cost === '20')) food += 20;
+      document.getElementById('foodCost').textContent = `C$${food}`;
+      document.getElementById('giftCost').textContent = checked.some(r => r.dataset.cost === '25') ? 'C$25' : 'C$0';
+      document.getElementById('remainingBudget').style.color = remaining >= 0 ? 'var(--success)' : 'var(--danger)';
+    }
+
+    document.querySelectorAll('#recommendations input').forEach(input => input.addEventListener('change', updateBudget));
+
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      const btn = document.getElementById('generateBtn');
+      const original = btn.innerHTML;
+      btn.innerHTML = 'Generating…';
+      btn.disabled = true;
+      setTimeout(() => {
+        btn.innerHTML = original;
+        btn.disabled = false;
+        showToast('Your personalized plan has been generated.');
+        document.getElementById('recommendations').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 900);
+    });
+
+    function openModal(title, eyebrow, html) {
+      document.getElementById('modalTitle').textContent = title;
+      document.getElementById('modalEyebrow').textContent = eyebrow;
+      document.getElementById('modalContent').innerHTML = html;
+      modalBackdrop.classList.add('open');
+    }
+
+    function closeModal() { modalBackdrop.classList.remove('open'); }
+    document.getElementById('closeModal').addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', e => { if (e.target === modalBackdrop) closeModal(); });
+
+    document.getElementById('newEventBtn').addEventListener('click', () => openModal('Create a new event', 'AI intake', `
+      <div class="form-grid">
+        <div class="field"><label>Occasion</label><select id="newOccasion"><option>Date night</option><option>Birthday</option><option>Wedding</option><option>Workshop</option></select></div>
+        <div class="field"><label>City</label><input id="newCity" placeholder="Toronto"></div>
+        <div class="field"><label>Date</label><input type="date"></div>
+        <div class="field"><label>Budget</label><input placeholder="C$500"></div>
+        <div class="field full"><label>Describe what you want</label><textarea style="border:1px solid var(--line); border-radius:12px" placeholder="Tell Gatherly about the occasion, guests, likes, dislikes, and priorities..."></textarea></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-top:18px" onclick="closeModal(); showToast('New event workspace created.')">Create event</button>
+    `));
+
+    document.getElementById('shareBtn').addEventListener('click', () => {
+      navigator.clipboard?.writeText('https://gatherly.demo/e/maya-anniversary');
+      showToast('Guest link copied to clipboard.');
+    });
+
+    document.getElementById('riskBtn').addEventListener('click', () => openModal('Weather contingency', 'AI risk plan', `
+      <p class="muted">If rain affects the waterfront walk, replace it with a dessert tasting at Dolce Harbour, located four minutes from the restaurant.</p>
+      <div class="guest"><div><strong>Primary plan</strong><br><span class="muted">Waterfront walk and dessert pickup</span></div><span class="status warning">Weather dependent</span></div>
+      <div class="guest" style="margin-top:10px"><div><strong>Backup plan</strong><br><span class="muted">Indoor dessert tasting</span></div><span class="status success">Available</span></div>
+    `));
+
+    document.getElementById('optimizeBtn').addEventListener('click', () => showToast('Itinerary optimized to reduce travel time by 18 minutes.'));
+    document.getElementById('mediateBtn').addEventListener('click', () => openModal('AI payment mediator', 'Payment review', `
+      <p>Gatherly compared the accepted quote and invoice. No pricing discrepancy was found.</p>
+      <div class="budget-row"><span>Accepted quote</span><strong>C$25</strong></div>
+      <div class="budget-row"><span>Current invoice</span><strong>C$25</strong></div>
+      <div class="budget-row"><span>Cancellation window</span><strong>Before engraving</strong></div>
+      <p class="muted" style="margin-top:18px">Suggested action: approve only after confirming the spelling of the engraving. Final decisions remain with the organizer.</p>
+    `));
+
+    document.getElementById('addVendorBtn').addEventListener('click', () => openModal('Add a vendor', 'Vendor management', `
+      <div class="form-grid">
+        <div class="field"><label>Vendor name</label><input id="vendorName" placeholder="Vendor name"></div>
+        <div class="field"><label>Category</label><select><option>Restaurant</option><option>Venue</option><option>Catering</option><option>Gift</option><option>Entertainment</option></select></div>
+        <div class="field"><label>Quote</label><input placeholder="C$0"></div>
+        <div class="field"><label>Status</label><select><option>Suggested</option><option>Contacted</option><option>Selected</option><option>Confirmed</option></select></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-top:18px" onclick="closeModal(); showToast('Vendor added to the pipeline.')">Add vendor</button>
+    `));
+
+    document.getElementById('inviteBtn').addEventListener('click', () => openModal('Invite a guest', 'Guest portal', `
+      <div class="form-grid">
+        <div class="field"><label>Name</label><input placeholder="Guest name"></div>
+        <div class="field"><label>Email or phone</label><input placeholder="name@example.com"></div>
+        <div class="field full"><label>Message</label><input value="You're invited! Please confirm your attendance."></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-top:18px" onclick="closeModal(); showToast('Invitation sent.')">Send invitation</button>
+    `));
+
+    document.getElementById('addTaskBtn').addEventListener('click', () => {
+      const task = document.createElement('label');
+      task.className = 'guest';
+      task.innerHTML = '<div class="guest-info"><input type="checkbox"><div><strong>New planning task</strong><br><span class="muted">Assigned to organizer</span></div></div><span class="status">Open</span>';
+      document.getElementById('taskList').appendChild(task);
+      showToast('Task added.');
+    });
+
+    document.getElementById('saveSettingsBtn').addEventListener('click', () => showToast('Event settings saved.'));
+
+    updateBudget();
+  </script>
+</body>
+</html>
